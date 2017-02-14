@@ -345,6 +345,11 @@ class HTTPServer(object):
         self.user = user
         self.password = password
         self.cacert = cacert
+        self.env = environ.copy()
+        try:
+            del self.env['INET_IS_ARGO']
+        except KeyError:
+            pass
 
     def write_auth_file(self, stream):
         """Write curl auth config to stream"""
@@ -370,7 +375,8 @@ class HTTPServer(object):
                 elif method.upper() == 'GET':
                     args += ['--out', tf.name]
                     args += ['--write-out', '%{http_code}']
-                curl = Popen(args, stdout=PIPE, stderr=PIPE, close_fds=True)
+                curl = Popen(args, stdout=PIPE, stderr=PIPE, close_fds=True,
+                             env=self.env)
                 out, err = curl.communicate()
                 for line in out.split('\n'):
                     if line != '{}':
@@ -421,7 +427,7 @@ class HTTPServer(object):
                               '--max-time', str(timeout), 
                               '-K', cf.name,
                               '--range', str(partial_size) + '-', url],
-                             stdout=PIPE, close_fds=True)
+                             stdout=PIPE, close_fds=True, env=self.env)
                 with icbinn.open(partial_destination,
                                  O_WRONLY | O_CREAT) as icbinn_file:
                     while True:

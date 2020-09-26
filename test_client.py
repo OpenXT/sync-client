@@ -69,7 +69,7 @@ def test_hello_fail_server_error():
     try:
         client = HTTPServer(base_url)
         make_call(client.fetch, 'hello', client_version=1)
-    except ServerError, ex:
+    except ServerError as ex:
         assert 'status 500' in ex.message
     else:
         raise Exception("Expected a ServerError to be thrown")

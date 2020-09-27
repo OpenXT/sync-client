@@ -162,7 +162,7 @@ class VhdUtilSnapshotFailed(Error):
 def setup_icbinn():
     """Setup icbinn paths and objects module level variables"""
     global ICBINN_CONFIG, ICBINN_STORAGE
-    xenstore = Popen(['xenstore-read', 'vm'], stdout=PIPE, close_fds=True)
+    xenstore = Popen(['xenstore-read', 'vm'], stdout=PIPE, close_fds=True, text=True)
     output, _ = xenstore.communicate()
     if xenstore.returncode != 0:
         raise PlatformError('unable to read syncvm object path: '
@@ -362,9 +362,9 @@ class HTTPServer(object):
         """Access document using curl"""
         url = self.base_url + document
         log.info('%s %s' % (method.upper(), url))
-        with NamedTemporaryFile(suffix='.cred') as cf:
+        with NamedTemporaryFile(suffix='.cred', mode="w+") as cf:
             self.write_auth_file(cf)
-            with NamedTemporaryFile(suffix='.'+method+'.out') as tf:
+            with NamedTemporaryFile(suffix='.'+method+'.out', mode="w+") as tf:
                 args = ['curl', '--silent', '--max-time', str(timeout), 
                         '-K', cf.name, url]
                 if method.upper() == 'PUT':
@@ -376,7 +376,7 @@ class HTTPServer(object):
                     args += ['--out', tf.name]
                     args += ['--write-out', '%{http_code}']
                 curl = Popen(args, stdout=PIPE, stderr=PIPE, close_fds=True,
-                             env=self.env)
+                             env=self.env, text=True)
                 out, err = curl.communicate()
                 for line in out.split('\n'):
                     if line != '{}':
@@ -1445,7 +1445,7 @@ class DomstoreConfig:
                               "options: %s" % ("role", self.role,
                                                ", ".join(SYNC_ROLES)))
 
-        with NamedTemporaryFile(delete=False) as f:
+        with NamedTemporaryFile(delete=False, mode="w+") as f:
             f.write(self.read_key(db, "cacert"))
             self.cacert_file = f.name
 

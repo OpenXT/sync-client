@@ -114,7 +114,7 @@ def set_up_signals(signal_pipe_read, signal_pipe_write):
     fcntl.fcntl(signal_pipe_write, fcntl.F_SETFL, flags)
 
     def handle_signal(signal_num, stack):
-        os.write(signal_pipe_write, chr(signal_num))
+        os.write(signal_pipe_write, chr(signal_num).encode('utf-8'))
 
     for signal_num in [signal.SIGCHLD, signal.SIGINT, signal.SIGTERM]:
         signal.signal(signal_num, handle_signal)

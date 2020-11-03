@@ -38,7 +38,7 @@ from pyicbinn import icbinn_mkdir, icbinn_open, icbinn_pwrite, icbinn_rand
 from pyicbinn import icbinn_readent, icbinn_rename, icbinn_stat, icbinn_pread
 from pyicbinn import icbinn_unlink
 from re import match
-from itertools import izip_longest
+from itertools import zip_longest
 
 # TODO: revisit info messages, convert most to debug messages or remove?
 # TODO: ICBINN_MAXDATA, O_WRONLY etc. should come from pyicbinn
@@ -162,7 +162,7 @@ class VhdUtilSnapshotFailed(Error):
 def setup_icbinn():
     """Setup icbinn paths and objects module level variables"""
     global ICBINN_CONFIG, ICBINN_STORAGE
-    xenstore = Popen(['xenstore-read', 'vm'], stdout=PIPE, close_fds=True)
+    xenstore = Popen(['xenstore-read', 'vm'], stdout=PIPE, close_fds=True, text=True)
     output, _ = xenstore.communicate()
     if xenstore.returncode != 0:
         raise PlatformError('unable to read syncvm object path: '
@@ -362,9 +362,9 @@ class HTTPServer(object):
         """Access document using curl"""
         url = self.base_url + document
         log.info('%s %s' % (method.upper(), url))
-        with NamedTemporaryFile(suffix='.cred') as cf:
+        with NamedTemporaryFile(suffix='.cred', mode="w+") as cf:
             self.write_auth_file(cf)
-            with NamedTemporaryFile(suffix='.'+method+'.out') as tf:
+            with NamedTemporaryFile(suffix='.'+method+'.out', mode="w+") as tf:
                 args = ['curl', '--silent', '--max-time', str(timeout), 
                         '-K', cf.name, url]
                 if method.upper() == 'PUT':
@@ -376,7 +376,7 @@ class HTTPServer(object):
                     args += ['--out', tf.name]
                     args += ['--write-out', '%{http_code}']
                 curl = Popen(args, stdout=PIPE, stderr=PIPE, close_fds=True,
-                             env=self.env)
+                             env=self.env, text=True)
                 out, err = curl.communicate()
                 for line in out.split('\n'):
                     if line != '{}':
@@ -554,7 +554,7 @@ def set_nic_property(vm_path, nic_index, key, value, uuidmap):
 def map_vm_uuid(value, uuidmap, reverse):
     """Map a server VM uuid to a client VM uuid (or the reverse operation)"""
     if reverse:
-        for srv, cli in uuidmap.items():
+        for srv, cli in list(uuidmap.items()):
             if cli == value:
                 return srv
     else:
@@ -919,7 +919,7 @@ def ensure_vm_exists(uuid, have, sync_name, config, name):
                     destdict = topdict['config']['pci']
                 else:
                     destdict = topdict[daemon+'-firewall-rules']
-                highest = max( [-1]+[int(i) for i in destdict.keys()])
+                highest = max( [-1]+[int(i) for i in list(destdict.keys())])
                 if daemon == 'pci':
                     rkey = dict()
                     for akey in key.split(','):
@@ -1131,7 +1131,7 @@ def arrange_vm(myconfig, vmpath, vminfo, diskmap, uuidmap, already_disks):
 
     # walk over each disk on the VM and that we want
     for disk_index, (toolstack_disk_object, vmdisk) in enumerate(
-        izip_longest(vmc.list_disks(), vminfo['disks'])):
+        zip_longest(vmc.list_disks(), vminfo['disks'])):
         target_state_disk = diskmap.get(vmdisk['diskuuid']) if vmdisk else None
         arrange_disk_in_toolstack(
             vmpath, vmoptions, disk_index, toolstack_disk_object, vmdisk, 
@@ -1155,31 +1155,31 @@ def arrange_vms(myconfig, vms, disks, sync_name, already_disks, delete=True):
              sync_name, have)
     allvms = dict ( [(str(vminfo['vm_instance_uuid']),
                        vminfo) for vminfo in vms])
-    desired = dict( [rec for rec in allvms.items() if not 
+    desired = dict( [rec for rec in list(allvms.items()) if not
                      rec[1].get('removed', False)])
     
     uuid_map = {} # maps server VM uuids to local client VM UUIDs
-    for server_uuid, vminfo in desired.items():
+    for server_uuid, vminfo in list(desired.items()):
         ensure_vm_exists(server_uuid, have, sync_name, vminfo['config'],
                          vminfo['name'])
         client_uuid = get_vm_property(have[server_uuid], 'uuid')
         uuid_map[vminfo['vm_uuid']] = client_uuid
     log.info('uuid_map %r', uuid_map)
 
-    for server_uuid, vminfo in desired.items():
+    for server_uuid, vminfo in list(desired.items()):
         log.info('ensuring %s exists', server_uuid)
         arrange_vm(myconfig, have[server_uuid], vminfo, disk_map, 
                    uuid_map, already_disks)
         log.info('confirmed exists %s', server_uuid)
 
     if delete:
-        for server_uuid, vminfo in allvms.items():
+        for server_uuid, vminfo in list(allvms.items()):
             vmpath = have.get(server_uuid)
             if vmpath and vminfo['removed']:
                 set_vm_property(vmpath, 'download-progress', -1)
                 set_vm_property(vmpath, 'ready', False)
 
-        for server_uuid, vmpath in have.items():
+        for server_uuid, vmpath in list(have.items()):
             vminfo = allvms.get(server_uuid)
             graceful_delete = (vminfo and vminfo.get('removed', False) and 
                                get_vm_property(vmpath, 'state') == 'stopped')
@@ -1445,7 +1445,7 @@ class DomstoreConfig:
                               "options: %s" % ("role", self.role,
                                                ", ".join(SYNC_ROLES)))
 
-        with NamedTemporaryFile(delete=False) as f:
+        with NamedTemporaryFile(delete=False, mode="w+") as f:
             f.write(self.read_key(db, "cacert"))
             self.cacert_file = f.name
 

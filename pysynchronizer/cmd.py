@@ -21,7 +21,7 @@ from os.path import split
 
 from .errors import ConnectionError
 from .objects import XenMgr, VM
-from .utils import column_print
+from .utils import column_print, dbus_path_to_uuid
 
 class BaseCmd(Cmd):
     def __init__(self):
@@ -87,10 +87,22 @@ class XenMgrCmd(BaseCmd):
         column_print(rows)
         print('')
 
-    # TODO: implement
     def do_create_vm(self ,arg_str):
-        """Not Implemented"""
-        print("Not Implemented\n")
+        """Usage: create_vm {template name} [path to json]"""
+
+        tmplate, json_file = arg_str.split(None, 1)
+
+        json = ""
+        try:
+            with open(json_file, 'r') as f:
+                json = f.read()
+        except OSError:
+            print('  ERR: failure reading json file %s' % json_file)
+            return
+
+        path = self.xenmgr.create_vm(tmplate, json)
+
+        print(dbus_path_to_uuid(path))
 
     def help_delete_vm(self):
         print('Usage: delete_vm [uuid|name]\n')

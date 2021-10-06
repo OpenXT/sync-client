@@ -36,6 +36,12 @@ class XenMgr:
         build_info = self.host.get_property('build-info')
         return build_info['release'], build_info['build']
 
+    # NB: RPC Proxy rules must be adjusted to allow
+    def templates(self):
+        """Returns a list of templates"""
+
+        return self.xenmgr.list_templates()
+
     def vm_by_name(self):
         """Returns a dictionary of name:uuid pairs"""
         d = {}
@@ -70,6 +76,15 @@ class XenMgr:
                 return vms[ref]
 
         return None
+
+    def create_vm(self, template, json):
+        """Creates a VM from template using JSON data returning object path"""
+        try:
+            unrestricted = OXTDBusApi.open_xenmgr_unrestricted()
+        except Exception as err:
+           raise ConnectionError('Failed to connect to XenMgr unrestricted service') from err
+
+        return str(unrestricted.unrestricted_create_vm_with_template_and_json(template, json))
 
     def upgrade(self, url):
         """Takes a url, downloads it, and moves it for the upgrade manager to find"""

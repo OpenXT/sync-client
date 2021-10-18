@@ -16,11 +16,13 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+import shlex
+
 from cmd import Cmd
 from os.path import split
 
 from .errors import ConnectionError
-from .objects import XenMgr, VM
+from .objects import XenMgr, VM, Usb, UsbPolicyRule
 from .utils import column_print, dbus_path_to_uuid
 
 class BaseCmd(Cmd):
@@ -62,6 +64,14 @@ class SyncCmd(BaseCmd):
 
             vc.run(arg_str)
         except ConnectionError  as err:
+            print('Connection failed:\n\t%s\n' % err)
+        except Exception as err:
+            print('Unexpected exception:\n\t%s\n' % err)
+
+    def do_usb(self, arg_str):
+        try:
+            UsbCmd().run(arg_str)
+        except ConnectionError as err:
             print('Connection failed:\n\t%s\n' % err)
         except Exception as err:
             print('Unexpected exception:\n\t%s\n' % err)
@@ -265,6 +275,65 @@ class VmCmd(BaseCmd):
             else:
                 print('Failed to replace disk\n')
 
+class UsbCmd(BaseCmd):
+    def __init__(self):
+        super().__init__()
+
+        self.prompt = "usb> "
+        self.usb = Usb()
+
+    def do_list(self, arg_str):
+        rows = [ [
+            "rule id",
+            "description",
+            "vm uuid",
+        ] ]
+
+        for rule in self.usb.policy_get_rules():
+            rows.append(rule.summary_array())
+
+        column_print(rows)
+        print('')
+
+    def help_show(self):
+        print('Usage: show [rule # | all]\n')
+        print('Show the definition for the rule or for all rules')
+
+    def do_show(self, arg_str):
+        args = arg_str.split()
+        if len(args) < 1:
+            self.help_show()
+            return
+
+        if args[0].isdigit():
+            rule_id = int(args[0])
+            rule = self.usb.policy_get_rule(rule_id)
+            rule.show('', 0)
+            return
+
+        if args[0] != "all":
+            self.help_show()
+            return
+
+        for rule in self.usb.policy_get_rules():
+            rule.show('', 0)
+            print('')
+
+    def do_set(self, arg_str):
+        arg_sep = '='
+        rule = UsbPolicyRule(None) # get an empty rule
+
+        args = shlex.split(arg_str)
+        for arg in args:
+            key, value = arg.split(arg_sep)
+
+            try:
+                rule.set(key, value)
+            except Exception as err:
+                print("Error: %s" % err)
+                return
+
+        self.usb.policy_set_rule(rule)
 
 if __name__ == '__main__':
     import sys

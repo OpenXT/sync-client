@@ -91,6 +91,26 @@ class XenMgrCmd(BaseCmd):
         self.prompt = "xemmgr> "
         self.xenmgr = XenMgr()
 
+    def help_config(self):
+        print('Usage: config {command}\n')
+        print('Available commands:')
+        print('  get {property}: get config property\n')
+        print('  set {property}: get config property\n')
+
+    def do_config(self, arg_str):
+        args = arg_str.split()
+        if len(args) < 2:
+            self.help_config()
+            return
+
+        comm, args = args[0], args[1:]
+
+        if comm == 'get':
+            print('%s\n' % self.xenmgr.config_get(args[0]))
+
+        if comm == 'set':
+            self.xenmgr.config_set(args[0], args[1])
+
     def do_vms(self, arg_str):
         """Usage: vms\n\nList all VMs\n """
         rows = [ [

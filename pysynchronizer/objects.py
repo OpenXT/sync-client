@@ -16,6 +16,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+import dbus
 import os.path
 
 from .utils import is_valid_uuid, dbus_path_to_uuid, uuid_to_dbus_path
@@ -35,6 +36,33 @@ class XenMgr:
         """Get current XC release and build number from xenmgr"""
         build_info = self.host.get_property('build-info')
         return build_info['release'], build_info['build']
+
+    def config_get(self, key):
+        value = self.xenmgr.propi.Get('com.citrix.xenclient.xenmgr.config', key)
+
+        if isinstance(value, dbus.Boolean):
+            return bool(value)
+
+        if isinstance(value, dbus.Int32):
+            return int(value)
+
+        if isinstance(value, dbus.String):
+            return str(value)
+
+        return value
+
+    def config_set(self, key, value):
+        v = self.config_get(key)
+
+        if isinstance(v, bool):
+            if value.lower() == "true":
+                value = True
+            else:
+                value = False
+        elif isinstance(v, int):
+            value = int(value)
+
+        return str(self.xenmgr.propi.Set('com.citrix.xenclient.xenmgr.config', key, value))
 
     # NB: RPC Proxy rules must be adjusted to allow
     def templates(self):

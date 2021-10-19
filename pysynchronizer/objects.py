@@ -361,3 +361,43 @@ class UsbPolicyRule:
             return
 
         raise Error("Unknown USB Policy Rule attribute: %s", key)
+
+class Net:
+    def __init__(self):
+        try:
+            self.net = OXTDBusApi.open_net()
+        except Exception as err:
+           raise ConnectionError('Failed to connect to Network service') from err
+
+    # create_network: Creates network using configuration.
+    #     kind(string)
+    #     id(int)
+    #     config(string)
+    #
+    # returns:
+    #     network(string)
+    def create_network(self, kind, id, config):
+        return self.net.create_network(kind, id, config)
+
+    # list: Lists networks.
+    #
+    # returns:
+    #     networks(array of dictionaries)
+    def list(self):
+        return self.net.list()
+
+    def list_by_type(self, kind):
+        networks = []
+
+        for network in self.list():
+            if str(network['type']) == kind:
+                networks.append(network)
+
+        return networks
+
+    def get_mac(self, obj):
+        for net in self.list():
+            if str(net['object']) == obj:
+                return str(net['mac'])
+
+        return None

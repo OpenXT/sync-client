@@ -22,7 +22,7 @@ from cmd import Cmd
 from os.path import split
 
 from .errors import ConnectionError
-from .objects import XenMgr, VM, Usb, UsbPolicyRule
+from .objects import XenMgr, VM, Usb, UsbPolicyRule, Net
 from .utils import column_print, dbus_path_to_uuid
 
 class BaseCmd(Cmd):
@@ -71,6 +71,14 @@ class SyncCmd(BaseCmd):
     def do_usb(self, arg_str):
         try:
             UsbCmd().run(arg_str)
+        except ConnectionError as err:
+            print('Connection failed:\n\t%s\n' % err)
+        except Exception as err:
+            print('Unexpected exception:\n\t%s\n' % err)
+
+    def do_net(self, arg_str):
+        try:
+            NetCmd().run(arg_str)
         except ConnectionError as err:
             print('Connection failed:\n\t%s\n' % err)
         except Exception as err:
@@ -334,6 +342,46 @@ class UsbCmd(BaseCmd):
                 return
 
         self.usb.policy_set_rule(rule)
+
+class NetCmd(BaseCmd):
+    def __init__(self):
+        super().__init__()
+
+        self.prompt = "net> "
+        self.net = Net()
+
+    def do_list(self, arg_str):
+        rows = [ [
+            "object",
+            "label",
+            "mac",
+            "driver",
+            "backend",
+        ] ]
+
+        for network in self.net.list():
+            row = [network['object']]
+            row.append(network['label'])
+            row.append(network['mac'])
+            row.append(network['driver'])
+            row.append(network['backend_vm'])
+
+            rows.append(row)
+
+        column_print(rows)
+        print('')
+
+    def help_mac_addr(self):
+        print('Usage: mac_addr network_object\n')
+        print('Retrieve the mac address for the given network')
+
+    def do_mac_addr(self, arg_str):
+        args = arg_str.split()
+        if len(args) != 1:
+            self.help_mac_addr()
+            return
+
+        print('%s\n' % self.net.get_mac(args[0]))
 
 if __name__ == '__main__':
     import sys

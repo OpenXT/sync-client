@@ -23,6 +23,7 @@ import collections
 XENMGR_SERVICE = 'com.citrix.xenclient.xenmgr'
 DBD_SERVICE = 'com.citrix.xenclient.db'
 USB_SERVICE = 'com.citrix.xenclient.usbdaemon'
+NET_SERVICE = 'com.citrix.xenclient.networkdaemon'
 
 # DBus Interfaces
 XENMGR_INTF = 'com.citrix.xenclient.xenmgr'
@@ -33,6 +34,7 @@ DISK_INTF = 'com.citrix.xenclient.vmdisk'
 INPUT_INTF = 'com.citrix.xenclient.input'
 DB_INTF = 'com.citrix.xenclient.db'
 USB_INTF = 'com.citrix.xenclient.usbdaemon'
+NET_INTF = 'com.citrix.xenclient.networkdaemon'
 
 class ServiceObject:
     def __init__(self, service, intf, obj_path):
@@ -122,6 +124,15 @@ class OXTDBusApi:
         """Return a dbus proxy for the database (i.e. domstore) interface"""
         try:
             obj = ServiceObject(USB_SERVICE, USB_INTF, '/')
+        except:
+            obj = None
+        return obj
+
+    @staticmethod
+    def open_net():
+        """Return a dbus proxy for the network daemon interface"""
+        try:
+            obj = ServiceObject(NET_SERVICE, NET_INTF, '/')
         except:
             obj = None
         return obj

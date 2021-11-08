@@ -181,6 +181,26 @@ class VM:
         except:
             return ""
 
+    def list_argo_firewall_rules(self):
+        """List Argo firewall rules"""
+        return self.proxy_object.list_argo_firewall_rules()
+
+    def add_argo_firewall_rule(self, rule):
+        """Add firewall rule to Argo firewall"""
+        try:
+            self.proxy_object.add_argo_firewall_rule(rule)
+            return rule
+        except:
+            return ""
+
+    def delete_argo_firewall_rule(self, rule):
+        """Delete firewall rule to Argo firewall"""
+        try:
+            self.proxy_object.delete_argo_firewall_rule(rule)
+            return rule
+        except:
+            return ""
+
     def disks(self):
         """Retrieve a list of VMDisk objects of the disk associate with the VM"""
         disks = []

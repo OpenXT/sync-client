@@ -239,6 +239,44 @@ class VmCmd(BaseCmd):
 
         print('Unknown domstore command: %s\n' % cmd)
 
+    def help_argo_firewall(self):
+        print('Usage: argo_firewall list|[add|delete rule]\n')
+        print('\tlist: List Argo firewall rules\n')
+        print('\tadd|delete rule: Add/delete rule to Argo firewall\n')
+
+    def do_argo_firewall(self, arg_str):
+        args = arg_str.split()
+        if not args:
+            self.help_argo_firewall()
+            return
+
+        cmd, args = args[0], args[1:]
+
+        if cmd == "list":
+            col = [["Argo Rules"]]
+            for rule in self.vm.list_argo_firewall_rules():
+                col.append([rule])
+            column_print(col)
+            return
+
+        if cmd == "add":
+            if len(args) == 0:
+                print('Usage: argo_firewall add rule\n')
+                return
+            rule = " ".join(args).replace('"', '').replace("'", "")
+            print(self.vm.add_argo_firewall_rule(rule))
+            return
+
+        if cmd == "delete":
+            if len(args) == 0:
+                print('Usage: argo_firewall delete rule\n')
+                return
+            rule = " ".join(args).replace('"', '').replace("'", "")
+            print(self.vm.delete_argo_firewall_rule(rule))
+            return
+
+        print('Unknown argo_firewall command: %s\n' % cmd)
+
     def do_disks(self, arg_str):
         """Usage: disks\n\nList all disks associated with selected VM\n """
         if self.vm is None:

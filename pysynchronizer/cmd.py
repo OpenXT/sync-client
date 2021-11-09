@@ -429,6 +429,23 @@ class NetCmd(BaseCmd):
         column_print(rows)
         print('')
 
+    def help_create(self):
+        print('Usage: create network_id backing_uuid mac_address\n')
+        print('Create network with a backing domain and mac address')
+
+    def do_create(self, arg_str):
+        args = arg_str.split()
+        if len(args) != 1:
+            self.help_create()
+            return
+
+        net_num, uuid, mac_addr = args[0], args[1], args[2]
+        config = "uuid=%s,%s,,,," % (uuid, mac_addr)
+
+        print("Created:")
+        for net_type in ['wired', 'internal', 'any']:
+            print("\t%s" % self.net.create_network(net_type, net_num, config))
+
     def help_mac_addr(self):
         print('Usage: mac_addr network_object\n')
         print('Retrieve the mac address for the given network')

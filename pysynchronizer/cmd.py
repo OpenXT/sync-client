@@ -413,6 +413,13 @@ class UsbCmd(BaseCmd):
 
         self.usb.policy_set_rule(rule)
 
+    def help_remove(self):
+        print('Usage: remove [rule #]\n')
+        print('Remove the given rule #')
+
+    def do_remove(self, arg_str):
+        self.usb.policy_remove_rule(int(arg_str))
+
 class NetCmd(BaseCmd):
     def __init__(self):
         super().__init__()

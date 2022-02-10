@@ -338,6 +338,12 @@ class Usb:
 
         return UsbPolicyRule(values)
 
+    # policy_remove_rule: Remove a specific USB rule
+    #
+    # rule_id(int): ID of the rule to remove
+    def policy_remove_rule(self, rule_id):
+        return self.usb.policy_remove_rule(rule_id)
+
 class UsbPolicyRule:
 
     def __init__(self, values):

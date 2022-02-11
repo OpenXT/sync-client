@@ -466,16 +466,24 @@ class NetCmd(BaseCmd):
 
     def do_create(self, arg_str):
         args = arg_str.split()
-        if len(args) != 1:
+        if len(args) != 3:
             self.help_create()
             return
 
         net_num, uuid, mac_addr = args[0], args[1], args[2]
-        config = "uuid=%s,%s,,,," % (uuid, mac_addr)
+        config_wired = "uuid=%s,mac=%s,,,," % (uuid, mac_addr)
+        config = "uuid=%s,,,,," % (uuid)
 
+        nets = []
+        nets.append(self.net.create_network('wired', int(net_num), config_wired))
+        for net_type in ['internal', 'any']:
+            nets.append(self.net.create_network(net_type, int(net_num), config))
+
+        # "wired" creates 2 - wired and shared.  The others just 1.
+        nets = "".join(nets).split("\n")
         print("Created:")
-        for net_type in ['wired', 'internal', 'any']:
-            print("\t%s" % self.net.create_network(net_type, net_num, config))
+        for net in nets:
+            print("\t%s" % net)
 
     def help_mac_addr(self):
         print('Usage: mac_addr network_object\n')

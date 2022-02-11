@@ -38,6 +38,10 @@ class BaseCmd(Cmd):
     def do_exit(self, args):
         return -1
 
+    def do_EOF(self, args):
+        print()
+        return True
+
 class SyncCmd(BaseCmd):
     def __init__(self, cmd_str=""):
         super().__init__()

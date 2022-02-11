@@ -59,12 +59,10 @@ class SyncCmd(BaseCmd):
         self.do_xenmgr("upgrade " + arg_str)
 
     def do_vm(self, arg_str):
-        args = arg_str.split()
-
         try:
-            if args:
-                vc = VmCmd(args[0])
-                arg_str = " ".join(args[1:])
+            if arg_str:
+                vc = VmCmd(arg_str)
+                arg_str = vc.cmd_str
             else:
                 vc = VmCmd("")
                 arg_str = ""
@@ -162,20 +160,18 @@ class XenMgrCmd(BaseCmd):
         print('Usage: delete_vm [uuid|name]\n')
         print('Deletes VM matching either a uuid or a name\n')
 
-    def do_delete_vm(self, arg_str):
-        if not arg_str:
+    def do_delete_vm(self, vm_str):
+        if not vm_str:
             self.help_delete_vm()
             return
 
-        ref = arg_str.split()[0]
-
-        vm_uuid = self.xenmgr.find_vm(ref)
+        vm_uuid = self.xenmgr.find_vm(vm_str)
 
         if vm_uuid:
             vm = VM(vm_uuid)
             vm.delete()
         else:
-            print('unable to find vm: %s\n' % ref)
+            print('unable to find vm: %s\n' % vm_str)
 
     def help_upgrade(self):
         print('Usage: upgrade "URL"\n')
@@ -195,8 +191,20 @@ class VmCmd(BaseCmd):
 
         self.prompt = "vm> "
 
-        if arg_str:
-            self.select_vm(arg_str.split()[0])
+        # Handle names with spaces.  Default to full string as name
+        vm_str = arg_str
+        self.cmd_str = ""
+        # Find all possible commands:
+        cmds = [ x[3:] for x in self.__dir__() if x[:3] == "do_" ]
+        for cmd in cmds:
+            offset = arg_str.find(" " + cmd)
+            if offset != -1:
+                vm_str = arg_str[:offset]
+                self.cmd_str = arg_str[offset + 1:]
+                break
+
+        if vm_str:
+            self.select_vm(vm_str)
 
     def select_vm(self, vm_ref):
         vm_uuid = XenMgr().find_vm(vm_ref)
@@ -219,7 +227,7 @@ class VmCmd(BaseCmd):
         self.vm = None
         self.prompt = "vm> "
 
-        vm_ref = arg_str.split()[0]
+        vm_ref = arg_str
 
         self.select_vm(vm_ref)
         if self.vm is None:

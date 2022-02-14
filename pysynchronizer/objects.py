@@ -18,6 +18,7 @@
 
 import dbus
 import os.path
+import uuid
 
 from .utils import is_valid_uuid, dbus_path_to_uuid, uuid_to_dbus_path
 from .errors import Error, ConnectionError, ConfigError
@@ -404,8 +405,24 @@ class UsbPolicyRule:
             self.__dict__[key] = int(value)
             return
 
+        # VM needs to be a UUID, so convert valid names
+        if key == 'vm':
+            # {Name, UUID} -> UUID string
+            vm = XenMgr().find_vm(value)
+            if vm:
+                self.__dict__[key] = vm
+                return
+            try:
+                u = uuid.UUID(value)
+            except:
+                raise ValueError("'%s' is neither a VM name nor a valid UUID" % value) from None
+
+            # uuid doesn't exist - so maybe this should be an error?
+            self.__dict__[key] = value
+            return
+
         # Handle all the keys that have string values
-        if key in ('cmd', 'desc', 'vid', 'pid', 'serial', 'vm'):
+        if key in ('cmd', 'desc', 'vid', 'pid', 'serial'):
             self.__dict__[key] = value
             return
 

@@ -413,15 +413,29 @@ class UsbCmd(BaseCmd):
         arg_sep = '='
         rule = UsbPolicyRule(None) # get an empty rule
 
-        args = shlex.split(arg_str)
-        for arg in args:
-            key, value = arg.split(arg_sep)
+        # Parse from back to front.  This allows for whitespace like:
+        # idx=9000 desc=Desc with spaces cmd=running
+        while arg_str.rfind(arg_sep) != -1:
+            value_idx = arg_str.rfind(arg_sep)
+            value = arg_str[value_idx + 1:]
+            arg_str = arg_str[:value_idx]
+            key_idx = arg_str.rfind(" ")
+            if key_idx == -1:
+                key = arg_str
+                arg_str = ""
+            else:
+                key = arg_str[key_idx + 1:]
+                arg_str = arg_str[:key_idx]
 
             try:
                 rule.set(key, value)
             except Exception as err:
                 print("Error: %s" % err)
                 return
+
+        if len(arg_str) > 0:
+            print("Error parsing arguments: '%s'" % (arg_str))
+            return
 
         self.usb.policy_set_rule(rule)
 

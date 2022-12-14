@@ -119,6 +119,14 @@ class XenMgr:
 
         return str(unrestricted.unrestricted_create_vm_with_template_and_json(template, json))
 
+    def delete_vm(self, uuid):
+        """Deletes the VM with designated by uuid"""
+        try:
+            unrestricted = OXTDBusApi.open_xenmgr_unrestricted()
+        except Exception as err:
+            raise ConnectionError('Failed to connect to XenMgr unrestricted service') from err
+        return str(unrestricted.unrestricted_delete_vm(uuid))
+
     def upgrade(self, url):
         """Takes a url, downloads it, and moves it for the upgrade manager to find"""
         storage = Storage()

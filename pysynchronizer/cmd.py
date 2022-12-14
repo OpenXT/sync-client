@@ -168,8 +168,7 @@ class XenMgrCmd(BaseCmd):
         vm_uuid = self.xenmgr.find_vm(vm_str)
 
         if vm_uuid:
-            vm = VM(vm_uuid)
-            vm.delete()
+            self.xenmgr.delete_vm(vm_uuid)
         else:
             print('unable to find vm: %s\n' % vm_str)
 

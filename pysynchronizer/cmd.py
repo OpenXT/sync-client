@@ -184,6 +184,20 @@ class XenMgrCmd(BaseCmd):
         if not self.xenmgr.upgrade(arg_str.split()[0]):
             print('upgrade failed\n')
 
+    def help_shutdown(self):
+        print('Usage: shutdown\n')
+        print('Shutdown the host machine\n')
+
+    def do_shutdown(self, arg_str):
+        self.xenmgr.host.shutdown();
+
+    def help_reboot(self):
+        print('Usage: reboot\n')
+        print('Reboot the host machine\n')
+
+    def do_reboot(self, arg_str):
+        self.xenmgr.host.reboot()
+
 class VmCmd(BaseCmd):
     def __init__(self, arg_str):
         super().__init__()

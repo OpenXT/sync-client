@@ -37,6 +37,10 @@ class XenMgr:
         build_info = self.host.get_property('build-info')
         return build_info['release'], build_info['build']
 
+    def get_release_and_build(self):
+        """Get current XC release and build number from xenmgr"""
+        return self.host.get_property('build-info')
+
     def config_get(self, key):
         value = self.xenmgr.propi.Get('com.citrix.xenclient.xenmgr.config', key)
 

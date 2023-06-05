@@ -51,6 +51,9 @@ class SyncCmd(BaseCmd):
         except Exception as err:
             print('Unexpected exception:\n\t%s\n' % err)
 
+    def do_upgrade(self, arg_str):
+        self.do_xenmgr("upgrade " + arg_str)
+
     def do_vm(self, arg_str):
         args = arg_str.split()
 
@@ -90,6 +93,15 @@ class XenMgrCmd(BaseCmd):
 
         self.prompt = "xemmgr> "
         self.xenmgr = XenMgr()
+
+    def help_release(self):
+        print('Usage: release\n')
+        print('Prints Software build information')
+
+    def do_release(self, arg_str):
+        release = self.xenmgr.get_release_and_build()
+        for key in release.keys():
+            print("%s: %s" % (key, release[key]))
 
     def help_config(self):
         print('Usage: config {command}\n')

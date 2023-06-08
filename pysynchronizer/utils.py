@@ -19,10 +19,10 @@ def column_print(rows):
         for idx, col in enumerate(row):
             if idx == len(col_width):
                 col_width.append(0)
-            col_width[idx] = max(col_width[idx], len(col) + 2)
+            col_width[idx] = max(col_width[idx], len(str(col)) + 2)
 
     for row in rows:
-        print("".join(col.ljust(col_width[idx]) for idx, col in enumerate(row)))
+        print("".join(str(col).ljust(col_width[idx]) for idx, col in enumerate(row)))
 
 def dbus_path_to_uuid(path):
     return path.rsplit('/',1)[1].replace('_','-')

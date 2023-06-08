@@ -16,12 +16,14 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+import shlex
+
 from cmd import Cmd
 from os.path import split
 
 from .errors import ConnectionError
-from .objects import XenMgr, VM
-from .utils import column_print
+from .objects import XenMgr, VM, Usb, UsbPolicyRule, Net
+from .utils import column_print, dbus_path_to_uuid
 
 class BaseCmd(Cmd):
     def __init__(self):
@@ -36,6 +38,10 @@ class BaseCmd(Cmd):
     def do_exit(self, args):
         return -1
 
+    def do_EOF(self, args):
+        print()
+        return True
+
 class SyncCmd(BaseCmd):
     def __init__(self, cmd_str=""):
         super().__init__()
@@ -49,13 +55,14 @@ class SyncCmd(BaseCmd):
         except Exception as err:
             print('Unexpected exception:\n\t%s\n' % err)
 
-    def do_vm(self, arg_str):
-        args = arg_str.split()
+    def do_upgrade(self, arg_str):
+        self.do_xenmgr("upgrade " + arg_str)
 
+    def do_vm(self, arg_str):
         try:
-            if args:
-                vc = VmCmd(args[0])
-                arg_str = " ".join(args[1:])
+            if arg_str:
+                vc = VmCmd(arg_str)
+                arg_str = vc.cmd_str
             else:
                 vc = VmCmd("")
                 arg_str = ""
@@ -66,12 +73,57 @@ class SyncCmd(BaseCmd):
         except Exception as err:
             print('Unexpected exception:\n\t%s\n' % err)
 
+    def do_usb(self, arg_str):
+        try:
+            UsbCmd().run(arg_str)
+        except ConnectionError as err:
+            print('Connection failed:\n\t%s\n' % err)
+        except Exception as err:
+            print('Unexpected exception:\n\t%s\n' % err)
+
+    def do_net(self, arg_str):
+        try:
+            NetCmd().run(arg_str)
+        except ConnectionError as err:
+            print('Connection failed:\n\t%s\n' % err)
+        except Exception as err:
+            print('Unexpected exception:\n\t%s\n' % err)
+
 class XenMgrCmd(BaseCmd):
     def __init__(self):
         super().__init__()
 
         self.prompt = "xemmgr> "
         self.xenmgr = XenMgr()
+
+    def help_release(self):
+        print('Usage: release\n')
+        print('Prints Software build information')
+
+    def do_release(self, arg_str):
+        release = self.xenmgr.get_release_and_build()
+        for key in release.keys():
+            print("%s: %s" % (key, release[key]))
+
+    def help_config(self):
+        print('Usage: config {command}\n')
+        print('Available commands:')
+        print('  get {property}: get config property\n')
+        print('  set {property}: get config property\n')
+
+    def do_config(self, arg_str):
+        args = arg_str.split()
+        if len(args) < 2:
+            self.help_config()
+            return
+
+        comm, args = args[0], args[1:]
+
+        if comm == 'get':
+            print('%s\n' % self.xenmgr.config_get(args[0]))
+
+        if comm == 'set':
+            self.xenmgr.config_set(args[0], args[1])
 
     def do_vms(self, arg_str):
         """Usage: vms\n\nList all VMs\n """
@@ -87,29 +139,38 @@ class XenMgrCmd(BaseCmd):
         column_print(rows)
         print('')
 
-    # TODO: implement
     def do_create_vm(self ,arg_str):
-        """Not Implemented"""
-        print("Not Implemented\n")
+        """Usage: create_vm {template name} [path to json]"""
+
+        tmplate, json_file = arg_str.split(None, 1)
+
+        json = ""
+        try:
+            with open(json_file, 'r') as f:
+                json = f.read()
+        except OSError:
+            print('  ERR: failure reading json file %s' % json_file)
+            return
+
+        path = self.xenmgr.create_vm(tmplate, json)
+
+        print(dbus_path_to_uuid(path))
 
     def help_delete_vm(self):
         print('Usage: delete_vm [uuid|name]\n')
         print('Deletes VM matching either a uuid or a name\n')
 
-    def do_delete_vm(self, arg_str):
-        if not arg_str:
+    def do_delete_vm(self, vm_str):
+        if not vm_str:
             self.help_delete_vm()
             return
 
-        ref = arg_str.split()[0]
-
-        vm_uuid = self.xenmgr.find_vm(ref)
+        vm_uuid = self.xenmgr.find_vm(vm_str)
 
         if vm_uuid:
-            vm = VM(vm_uuid)
-            vm.delete()
+            self.xenmgr.delete_vm(vm_uuid)
         else:
-            print('unable to find vm: %s\n' % ref)
+            print('unable to find vm: %s\n' % vm_str)
 
     def help_upgrade(self):
         print('Usage: upgrade "URL"\n')
@@ -123,14 +184,40 @@ class XenMgrCmd(BaseCmd):
         if not self.xenmgr.upgrade(arg_str.split()[0]):
             print('upgrade failed\n')
 
+    def help_shutdown(self):
+        print('Usage: shutdown\n')
+        print('Shutdown the host machine\n')
+
+    def do_shutdown(self, arg_str):
+        self.xenmgr.host.shutdown();
+
+    def help_reboot(self):
+        print('Usage: reboot\n')
+        print('Reboot the host machine\n')
+
+    def do_reboot(self, arg_str):
+        self.xenmgr.host.reboot()
+
 class VmCmd(BaseCmd):
     def __init__(self, arg_str):
         super().__init__()
 
         self.prompt = "vm> "
 
-        if arg_str:
-            self.select_vm(arg_str.split()[0])
+        # Handle names with spaces.  Default to full string as name
+        vm_str = arg_str
+        self.cmd_str = ""
+        # Find all possible commands:
+        cmds = [ x[3:] for x in self.__dir__() if x[:3] == "do_" ]
+        for cmd in cmds:
+            offset = arg_str.find(" " + cmd)
+            if offset != -1:
+                vm_str = arg_str[:offset]
+                self.cmd_str = arg_str[offset + 1:]
+                break
+
+        if vm_str:
+            self.select_vm(vm_str)
 
     def select_vm(self, vm_ref):
         vm_uuid = XenMgr().find_vm(vm_ref)
@@ -153,7 +240,7 @@ class VmCmd(BaseCmd):
         self.vm = None
         self.prompt = "vm> "
 
-        vm_ref = arg_str.split()[0]
+        vm_ref = arg_str
 
         self.select_vm(vm_ref)
         if self.vm is None:
@@ -188,6 +275,44 @@ class VmCmd(BaseCmd):
             return
 
         print('Unknown domstore command: %s\n' % cmd)
+
+    def help_argo_firewall(self):
+        print('Usage: argo_firewall list|[add|delete rule]\n')
+        print('\tlist: List Argo firewall rules\n')
+        print('\tadd|delete rule: Add/delete rule to Argo firewall\n')
+
+    def do_argo_firewall(self, arg_str):
+        args = arg_str.split()
+        if not args:
+            self.help_argo_firewall()
+            return
+
+        cmd, args = args[0], args[1:]
+
+        if cmd == "list":
+            col = [["Argo Rules"]]
+            for rule in self.vm.list_argo_firewall_rules():
+                col.append([rule])
+            column_print(col)
+            return
+
+        if cmd == "add":
+            if len(args) == 0:
+                print('Usage: argo_firewall add rule\n')
+                return
+            rule = " ".join(args).replace('"', '').replace("'", "")
+            print(self.vm.add_argo_firewall_rule(rule))
+            return
+
+        if cmd == "delete":
+            if len(args) == 0:
+                print('Usage: argo_firewall delete rule\n')
+                return
+            rule = " ".join(args).replace('"', '').replace("'", "")
+            print(self.vm.delete_argo_firewall_rule(rule))
+            return
+
+        print('Unknown argo_firewall command: %s\n' % cmd)
 
     def do_disks(self, arg_str):
         """Usage: disks\n\nList all disks associated with selected VM\n """
@@ -253,6 +378,151 @@ class VmCmd(BaseCmd):
             else:
                 print('Failed to replace disk\n')
 
+class UsbCmd(BaseCmd):
+    def __init__(self):
+        super().__init__()
+
+        self.prompt = "usb> "
+        self.usb = Usb()
+
+    def do_list(self, arg_str):
+        rows = [ [
+            "rule id",
+            "description",
+            "vm uuid",
+        ] ]
+
+        for rule in self.usb.policy_get_rules():
+            rows.append(rule.summary_array())
+
+        column_print(rows)
+        print('')
+
+    def help_show(self):
+        print('Usage: show [rule # | all]\n')
+        print('Show the definition for the rule or for all rules')
+
+    def do_show(self, arg_str):
+        args = arg_str.split()
+        if len(args) < 1:
+            self.help_show()
+            return
+
+        if args[0].isdigit():
+            rule_id = int(args[0])
+            rule = self.usb.policy_get_rule(rule_id)
+            rule.show('', 0)
+            return
+
+        if args[0] != "all":
+            self.help_show()
+            return
+
+        for rule in self.usb.policy_get_rules():
+            rule.show('', 0)
+            print('')
+
+    def do_set(self, arg_str):
+        arg_sep = '='
+        rule = UsbPolicyRule(None) # get an empty rule
+
+        # Parse from back to front.  This allows for whitespace like:
+        # idx=9000 desc=Desc with spaces cmd=running
+        while arg_str.rfind(arg_sep) != -1:
+            value_idx = arg_str.rfind(arg_sep)
+            value = arg_str[value_idx + 1:]
+            arg_str = arg_str[:value_idx]
+            key_idx = arg_str.rfind(" ")
+            if key_idx == -1:
+                key = arg_str
+                arg_str = ""
+            else:
+                key = arg_str[key_idx + 1:]
+                arg_str = arg_str[:key_idx]
+
+            try:
+                rule.set(key, value)
+            except Exception as err:
+                print("Error: %s" % err)
+                return
+
+        if len(arg_str) > 0:
+            print("Error parsing arguments: '%s'" % (arg_str))
+            return
+
+        self.usb.policy_set_rule(rule)
+
+    def help_remove(self):
+        print('Usage: remove [rule #]\n')
+        print('Remove the given rule #')
+
+    def do_remove(self, arg_str):
+        self.usb.policy_remove_rule(int(arg_str))
+
+class NetCmd(BaseCmd):
+    def __init__(self):
+        super().__init__()
+
+        self.prompt = "net> "
+        self.net = Net()
+
+    def do_list(self, arg_str):
+        rows = [ [
+            "object",
+            "label",
+            "mac",
+            "driver",
+            "backend",
+        ] ]
+
+        for network in self.net.list():
+            row = [network['object']]
+            row.append(network['label'])
+            row.append(network['mac'])
+            row.append(network['driver'])
+            row.append(network['backend_vm'])
+
+            rows.append(row)
+
+        column_print(rows)
+        print('')
+
+    def help_create(self):
+        print('Usage: create network_id backing_uuid mac_address\n')
+        print('Create network with a backing domain and mac address')
+
+    def do_create(self, arg_str):
+        args = arg_str.split()
+        if len(args) != 3:
+            self.help_create()
+            return
+
+        net_num, uuid, mac_addr = args[0], args[1], args[2]
+        config_wired = "uuid=%s,mac=%s,,,," % (uuid, mac_addr)
+        config = "uuid=%s,,,,," % (uuid)
+
+        nets = []
+        nets.append(self.net.create_network('wired', int(net_num), config_wired))
+        for net_type in ['internal', 'any']:
+            nets.append(self.net.create_network(net_type, int(net_num), config))
+
+        # "wired" creates 2 - wired and shared.  The others just 1.
+        nets = "".join(nets).split("\n")
+        print("Created:")
+        for net in nets:
+            print("\t%s" % net)
+
+    def help_mac_addr(self):
+        print('Usage: mac_addr network_object\n')
+        print('Retrieve the mac address for the given network')
+
+    def do_mac_addr(self, arg_str):
+        args = arg_str.split()
+        if len(args) != 1:
+            self.help_mac_addr()
+            return
+
+        print('%s\n' % self.net.get_mac(args[0]))
 
 if __name__ == '__main__':
     import sys

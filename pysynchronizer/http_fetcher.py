@@ -48,6 +48,7 @@ class HttpFetcher:
 
     def setup_ssl_context(self):
         sslcont = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        sslcont.minimum_version = ssl.TLSVersion.TLSv1_2
         if self.cacert != "":
             sslcont.load_verify_locations(cadata=self.cacert)
 
